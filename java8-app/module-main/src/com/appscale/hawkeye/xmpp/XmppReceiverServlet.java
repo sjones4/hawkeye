@@ -1,0 +1,63 @@
+package com.appscale.hawkeye.xmpp;
+
+import java.io.IOException;
+import javax.servlet.http.*;
+import com.google.appengine.api.xmpp.JID;
+import com.google.appengine.api.xmpp.Message;
+import com.google.appengine.api.xmpp.MessageBuilder;
+import com.google.appengine.api.xmpp.MessageType;
+import com.google.appengine.api.datastore.*;
+import java.util.logging.Logger;
+import java.util.*;
+import java.io.*;
+import javax.servlet.ServletInputStream;
+import java.lang.InterruptedException;
+
+public class XmppReceiverServlet extends HttpServlet
+{
+    private static final Logger logger = Logger.getLogger(XmppReceiverServlet.class.getName());
+    private String MESSAGE = "pew pew from hawkeye";
+    private String MESSAGE_RECEIVED = "message received!";
+    private String TEST_KEYNAME = "test";
+    private String TEST_ENTITYNAME = "test";
+    private String ENTITY_PROPERTY = "state";
+
+    public void doPost(HttpServletRequest req, HttpServletResponse res) throws IOException 
+    {
+        try
+        {
+            //sleep so we don't write the same key too quickly
+            Thread.sleep(1500);
+        }
+        catch(InterruptedException e)
+        {
+            logger.warning("Thread interrupted: " + e.getMessage());
+        }
+        
+        MessageBuilder builder = new MessageBuilder();
+        builder.withMessageType(MessageType.CHAT);
+        for (String fieldName : Collections.list((java.util.Enumeration<String>)req.getParameterNames())) {
+          if ("from".equals(fieldName)) {
+            builder.withFromJid(new JID(req.getParameter(fieldName)));
+          } else if ("to".equals(fieldName)) {
+            builder.withRecipientJids(new JID[]{new JID(req.getParameter(fieldName))});
+          } else if ("body".equals(fieldName)) {
+            builder.withBody(req.getParameter(fieldName));
+          }
+        }
+        Message message = builder.build();
+        
+        JID fromJid = message.getFromJid();
+        String body = message.getBody();
+        if(!body.equals(MESSAGE))
+        {
+            logger.warning("Got unexpected message: " + body);
+            return;
+        }    
+        DatastoreService datastore = DatastoreServiceFactory.getDatastoreService();
+        Entity entity = new Entity(TEST_ENTITYNAME, TEST_KEYNAME);
+        entity.setProperty(ENTITY_PROPERTY, MESSAGE_RECEIVED);
+        datastore.put(entity);
+    }
+}
+
